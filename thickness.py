@@ -277,7 +277,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Compute cortical thickness between two meshes without prior node correspondence')
     parser.add_argument("--int", help="internal cortical surface", dest='int', type=str, required=True)
     parser.add_argument("--ext", help="external cortical surface", dest='ext', type=str, required=True)
-    parser.add_argument("--output", help="thickness map", dest='thickness', type=str, required=True)
+    parser.add_argument("--thickness", help="thickness map", dest='thickness', type=str, required=True)
     parser.add_argument("--mid", help="central surface", dest='mid', type=str, required=True)
 
     args = parser.parse_args()
