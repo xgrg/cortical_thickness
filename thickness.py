@@ -252,7 +252,7 @@ def build_median(im, em, neighbours_file=None):
                 matching_pt, res = im.closest_point_on_triangle(e, em, searchzone = sz)
 
             matching_mesh.vertex[e] = matching_pt
-            thickness[e] = linalg.norm(im.vertex[e] - em.vertex[res])
+            thickness[e] = linalg.norm(im.vertex[e] - matching_pt)
             intcorr[e] = res
             current.append(e)
 
