@@ -142,7 +142,7 @@ class Mesh():
         for i1 in mesh.neighbours[index]:
             for i2 in mesh.neighbours[index]:
                 if i1 > i2:
-                    p, is_inside = is_inside_triangle(mesh.vertex[i], [i, i1, i2], mesh)
+                    p, is_inside = is_inside_triangle(self.vertex[i], [index, i1, i2], mesh)
                     if is_inside:
                         proj.append(p)
 
@@ -177,9 +177,9 @@ def is_inside_triangle(p, face, mesh):
     t = (uv * wu - uu * wv) * invD
 
     if s < 0 or s > 1:
-        return (res, False)
+        return ([0,0,0], False)
     if t < 0 or (s+t) > 1:
-        return (res, False)
+        return ([0,0,0], False)
 
     res = np.array(mesh.vertex[face[0]])
     u *= s
