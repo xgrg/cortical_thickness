@@ -26,6 +26,15 @@ class Mesh():
         g.add_gifti_data_array(gf)
         gio.write(g, fp)
 
+    def compute_area(self):
+        area = 0
+        for f in self.face:
+           a = self.vertex[f[1]] - self.vertex[f[0]]
+           b = self.vertex[f[2]] - self.vertex[f[0]]
+           c = np.cross(a, b)
+           area = area + np.sqrt((c ** 2).sum())
+        return area
+
     def compute_neighbours(self):
         self.neighbours = {}
         for each in self.face:
@@ -264,6 +273,10 @@ def main(args):
     im = Mesh(args.int)
     em = Mesh(args.ext)
     mm, thickness = build_median(im, em, neighbours_file = '/tmp/%s.neighbours.pickle'%osp.basename(args.ext))
+    ea = em.compute_area()
+    ia = im.compute_area()
+    print 'area: int:', ia, 'ext:', ea
+    print 'ratio e/i:', ea/ia
 
     gda = gifti.GiftiDataArray.from_array(np.array(thickness), intent=1001)
     g = gifti.GiftiImage(darrays=[gda])
