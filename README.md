@@ -20,6 +20,7 @@ $ ./compare_maps.py --m1 data/subject1_scan01_Lwhite.gii --m2 data/lh.r.aims.whi
 
 ### Requirements
 - nibabel, gdist, numpy, pickle (optional)
+
 ### Version
 still in development
 
