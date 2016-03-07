@@ -156,7 +156,7 @@ class Mesh():
                         proj.append(p)
 
         if len(proj) != 0:
-            dist = [linalg.norm(mesh.vertex[i] - e) for e in proj]
+            dist = [linalg.norm(self.vertex[i] - e) for e in proj]
             best = proj[dist.index(min(dist))]
             return (best, index)
         else:
