@@ -36,7 +36,7 @@ def main(args):
           diff[r], dist[r] = compare_node(r, m1, m2, t1, t2)
     else:
        for r in xrange(len(m1.vertex)):
-          if i%1000==0: print i, '/', len(m1.vertex)
+          if r%1000==0: print r, '/', len(m1.vertex)
           diff[r], dist[r] = compare_node(r, m1, m2, t1, t2)
 
     gda = gifti.GiftiDataArray.from_array(np.array(diff), intent=1001)
