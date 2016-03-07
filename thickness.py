@@ -115,38 +115,37 @@ class Mesh():
         return np.argmin(dist)
 
 
-    def matching_node(self, i, mesh, searchzone):
+    def matching_node(self, i, mesh, searchzone, dw=1, nw=1):
         ''' Looks for the closest point on a target surface 'mesh' from a given node index 'i'.
         A searchzone made of nodes helps speeding up the operation.
         The difference with self.closest_node() is that there is a small constraint
-        which drives the matching node to be following the normal direction'''
-        mindist = 5000
-        mindist2 = 5000
-        index = -1
-        index2 = -1
+        which drives the matching node to be following the normal direction
+        dw and nw allow to weigh preferably on distance (dw) or normal (nw) criterion.
+         '''
 
+        def dist_w(d, mindist, maxdist):
+            w = 1.0 - (d - mindist) / (maxdist - mindist)
+            return w
+
+        def scal_w(s, minscal, maxscal):
+            w = (s - minscal) / (maxscal - minscal)
+            return w
+
+        searchzone = list(searchzone)
         dots = [np.dot(self.normal[i], mesh.normal[each]) for each in searchzone]
+
+        dist = [linalg.norm(self.vertex[i] - mesh.vertex[each]) for each in searchzone]
+
         minscal, maxscal = min(dots), max(dots)
+        mindist, maxdist = min(dist), max(dist)
+        weights = [dw * dist_w(dist[e], mindist, maxdist) + nw * scal_w(dots[e], minscal, maxscal) for e in xrange(len(searchzone))]
+        best = searchzone[weights.index(max(weights))]
 
-        for each in searchzone:
-            dot = np.dot(self.normal[i], mesh.normal[each])
-            dist = linalg.norm(self.vertex[i] - mesh.vertex[each])
-            if dist < mindist and dot > minscal + (maxscal - minscal) * 0.30:
-                index = each
-                mindist = dist
-            if dist < mindist2:
-                index2 = each
-                mindist2 = dist
+        return best
 
-        if index == -1:
-            index = index2
-            if index == -1:
-                raise Exception('No closest point found for vertex %s'%i)
-        return index
+    def closest_point_on_triangle(self, i, mesh, searchzone, dw=1, nw=1):
 
-    def closest_point_on_triangle(self, i, mesh, searchzone):
-
-        index = self.matching_node(i, mesh, searchzone)
+        index = self.matching_node(i, mesh, searchzone, dw=dw, nw=nw)
         proj = []
         for i1 in mesh.neighbours[index]:
             for i2 in mesh.neighbours[index]:
@@ -200,11 +199,11 @@ def is_inside_triangle(p, face, mesh):
 
 
 
-def build_median(im, em, neighbours_file=None):
+def build_median(im, em, order=4, neighbours_file=None, dw=1, nw=1):
     import gdist
 
     print 'computing neighbours list'
-    att = {'order': 4}
+    att = {'order': order}
     if neighbours_file:
        if osp.isfile(neighbours_file):
           att['load_from_file'] = neighbours_file
@@ -220,7 +219,7 @@ def build_median(im, em, neighbours_file=None):
     current = [curr]
 
     sz = vertices_around(im.vertex[curr], em, maxdist=20.0)
-    matching_pt, intcorr[curr] = im.closest_point_on_triangle(curr, em, searchzone=sz)
+    matching_pt, intcorr[curr] = im.closest_point_on_triangle(curr, em, searchzone=sz, dw=dw, nw=nw)
 
     # compute distance map
     print 'computing distance map'
@@ -237,7 +236,7 @@ def build_median(im, em, neighbours_file=None):
     print 'propagating front...'
     nofound = 0
     while len(processed) < len(im.vertex):
-        if len(processed) % 1000 == 0:
+        if len(processed) % 100 == 0:
             print len(processed), '/', len(im.vertex), '(%s)'%len(current), 'nofound:', nofound
 
         dm = [distmap[e] for e in current]
@@ -249,16 +248,16 @@ def build_median(im, em, neighbours_file=None):
         neighbours = [e for e in im.neighbours[curr] if not (e in current or e in processed)]
 
         for e in neighbours:
-            matching_pt, res = im.closest_point_on_triangle(e, em, searchzone = n4_ext[intcorr[curr]])
+            matching_pt, res = im.closest_point_on_triangle(e, em, searchzone = n4_ext[intcorr[curr]], dw=dw, nw=nw)
 
             dist = linalg.norm(im.vertex[e] - em.vertex[res])
             dot = np.dot(em.vertex[res] - im.vertex[e], im.normal[e])
 
             # recompute if the closest point is too distant with the initial searchzone
-            if dist > 7.0 or dot < 0.0:
+            if dist > 5.0 or dot < 0.0:
                 nofound += 1
                 sz = vertices_around(im.vertex[e], em, maxdist=20.0)
-                matching_pt, res = im.closest_point_on_triangle(e, em, searchzone = sz)
+                matching_pt, res = im.closest_point_on_triangle(e, em, searchzone = sz, dw=dw, nw=nw)
 
             matching_mesh.vertex[e] = matching_pt
             thickness[e] = linalg.norm(im.vertex[e] - matching_pt)
@@ -266,13 +265,14 @@ def build_median(im, em, neighbours_file=None):
             current.append(e)
 
     mm.vertex = (im.vertex + matching_mesh.vertex)*0.5
-    return mm, thickness
+    return mm, thickness, matching_mesh
+
 
 
 def main(args):
     im = Mesh(args.int)
     em = Mesh(args.ext)
-    mm, thickness = build_median(im, em, neighbours_file = '/tmp/%s.neighbours.pickle'%osp.basename(args.ext))
+    mm, thickness, matching_mesh = build_median(im, em, args.order, neighbours_file = '/tmp/%s.neighbours.pickle'%osp.basename(args.ext))
     ea = em.compute_area()
     ia = im.compute_area()
     print 'area: int:', ia, 'ext:', ea
@@ -292,6 +292,9 @@ if __name__ == '__main__':
     parser.add_argument("--ext", help="external cortical surface", dest='ext', type=str, required=True)
     parser.add_argument("--thickness", help="thickness map", dest='thickness', type=str, required=True)
     parser.add_argument("--mid", help="central surface", dest='mid', type=str, required=True)
+    parser.add_argument("-O", help="max order for search zones", dest='order', type=int, default=4, required=False)
+    parser.add_argument("--dw", help="weight on distances", dest='dw', type=float, default=1, required=False)
+    parser.add_argument("--nw", help="weight on normals", dest='nw', type=float, default=1, required=False)
 
     args = parser.parse_args()
     main(args)
